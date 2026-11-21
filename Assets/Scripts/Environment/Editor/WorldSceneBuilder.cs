@@ -183,6 +183,7 @@ namespace TheGodAbove.Environment.Editor
             managersGO.AddComponent<DivinePowerTargetIndicator>();
             managersGO.AddComponent<DivinePowerVFXSpawner>();
             managersGO.AddComponent<DivinePowerCaster>();
+            managersGO.AddComponent<UISceneLoader>();
             managersGO.AddComponent<VillagerPopulationSpawner>();
 
             // 7.5 Ensure Dynamic Weather System exists
@@ -191,26 +192,14 @@ namespace TheGodAbove.Environment.Editor
                 EditorApplication.ExecuteMenuItem("GameObject/Dynamic Weather System/Weather System");
             }
 
-            // 8. EventSystem
-            if (Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
-            {
-                var es = new GameObject("EventSystem");
-                es.AddComponent<UnityEngine.EventSystems.EventSystem>();
-                es.AddComponent<InputSystemUIInputModule>();
-            }
-
-            // 9. Instantiate GameHUD Canvas Prefab
+            // 8. Ensure UI Canvas is removed from GameWorld (UI lives in dedicated GameUIScene)
             var existingHUD = GameObject.Find("GameHUD_Canvas");
             if (existingHUD != null) Object.DestroyImmediate(existingHUD);
 
-            var hudPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/UI/GameHUD.prefab");
-            if (hudPrefab != null)
-            {
-                var hudInstance = (GameObject)PrefabUtility.InstantiatePrefab(hudPrefab);
-                hudInstance.name = "GameHUD_Canvas";
-            }
+            var existingES = GameObject.Find("EventSystem");
+            if (existingES != null) Object.DestroyImmediate(existingES);
 
-            // 10. Save as Assets/Scenes/GameWorld.unity
+            // 9. Save as Assets/Scenes/GameWorld.unity
             EditorSceneManager.SaveScene(scene, "Assets/Scenes/GameWorld.unity");
             Debug.Log("[The God Above] Successfully generated rich diorama GameWorld scene at Assets/Scenes/GameWorld.unity!");
         }

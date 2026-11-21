@@ -25,6 +25,18 @@ namespace TheGodAbove.Core
             else if (Instance != this) Destroy(gameObject);
 
             FindSystemsIfNull();
+            HUDController.OnHUDReady += HandleHUDReady;
+        }
+
+        private void OnDestroy()
+        {
+            HUDController.OnHUDReady -= HandleHUDReady;
+        }
+
+        private void HandleHUDReady()
+        {
+            FindSystemsIfNull();
+            BindAllSystemsToUI();
         }
 
         private void Start()
