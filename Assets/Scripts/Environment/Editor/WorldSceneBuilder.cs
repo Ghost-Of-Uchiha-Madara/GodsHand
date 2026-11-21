@@ -169,24 +169,6 @@ namespace TheGodAbove.Environment.Editor
                 r2.transform.rotation = Quaternion.Euler(0f, 130f, 0f);
             }
 
-            // Villager NPCs
-            var villagerM = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Polytope Studio/Lowpoly_Characters/Prefabs/Modular_NPC/Peasants_Citizens/Sets/PT_Male_Peasant_01.prefab");
-            var villagerF = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Polytope Studio/Lowpoly_Characters/Prefabs/Modular_NPC/Peasants_Citizens/Sets/PT_Female_Peasant_01_a.prefab");
-            if (villagerM != null)
-            {
-                var m = (GameObject)PrefabUtility.InstantiatePrefab(villagerM, villageRoot.transform);
-                m.name = "Villager_Male_01";
-                m.transform.position = new Vector3(33f, 2.8f, 55f);
-                m.transform.rotation = Quaternion.Euler(0f, -45f, 0f);
-            }
-            if (villagerF != null)
-            {
-                var f = (GameObject)PrefabUtility.InstantiatePrefab(villagerF, villageRoot.transform);
-                f.name = "Villager_Female_01";
-                f.transform.position = new Vector3(41f, 3.8f, 61f);
-                f.transform.rotation = Quaternion.Euler(0f, 160f, 0f);
-            }
-
             // 7. Core Simulation Managers
             var existingManagers = GameObject.Find("--- MANAGERS ---");
             if (existingManagers != null) Object.DestroyImmediate(existingManagers);
@@ -201,6 +183,7 @@ namespace TheGodAbove.Environment.Editor
             managersGO.AddComponent<DivinePowerTargetIndicator>();
             managersGO.AddComponent<DivinePowerVFXSpawner>();
             managersGO.AddComponent<DivinePowerCaster>();
+            managersGO.AddComponent<VillagerPopulationSpawner>();
 
             // 7.5 Ensure Dynamic Weather System exists
             if (Object.FindFirstObjectByType<DynamicWeatherSystem.WeatherManager>() == null)

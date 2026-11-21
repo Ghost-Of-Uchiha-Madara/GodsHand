@@ -21,6 +21,8 @@ namespace TheGodAbove.Weather
         [Header("--- Current State ---")]
         [SerializeField] private DivinePowerType activePower = DivinePowerType.Sunny;
 
+        public event System.Action<DivinePowerType, Vector3, float> OnPowerCast;
+
         private readonly Dictionary<DivinePowerType, float> cooldownTimers = new Dictionary<DivinePowerType, float>();
         private Camera mainCamera;
 
@@ -206,6 +208,8 @@ namespace TheGodAbove.Weather
                 populationManager.ModifyHappiness(def.happinessDelta);
             }
 
+            OnPowerCast?.Invoke(def.powerType, Vector3.zero, 0f);
+
             string resultPrompt = def.powerType == DivinePowerType.Sunny
                 ? "☀️ Sunny Blessing applied: Warm harvest light and optimal growth conditions!"
                 : "🌧️ Rain Blessing applied: Rainfall hydrating the entire island for plant growth!";
@@ -254,6 +258,8 @@ namespace TheGodAbove.Weather
             {
                 populationManager.ModifyHappiness(def.happinessDelta);
             }
+
+            OnPowerCast?.Invoke(def.powerType, targetPos, def.aoeRadius);
 
             // 4. Special Effects (Lightning / Asteroid impact camera shake)
             if (def.powerType == DivinePowerType.Lightning || def.powerType == DivinePowerType.Hot)
