@@ -141,7 +141,8 @@ namespace TheGodAbove.Population
             model.transform.localRotation = Quaternion.identity;
             model.transform.localScale = Vector3.one;
 
-            // Ensure proper colliders and raycast interaction
+            // Ensure proper colliders and raycast interaction (on Ignore Raycast layer to avoid blocking terrain raycasts)
+            villagerGO.layer = 2; // Ignore Raycast
             var capsule = villagerGO.AddComponent<CapsuleCollider>();
             capsule.height = 1.8f;
             capsule.radius = 0.35f;

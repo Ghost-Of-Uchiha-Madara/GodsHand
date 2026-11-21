@@ -319,11 +319,34 @@ namespace TheGodAbove.Population
 
         private void SnapToTerrain()
         {
-            // Cast ray downwards from above villager to conform to terrain and bridges
-            Vector3 origin = transform.position + Vector3.up * 5f;
-            if (Physics.Raycast(origin, Vector3.down, out RaycastHit hit, 15f))
+            // Cast ray downwards from high above to firmly anchor onto terrain and bridges without hitting self
+            Vector3 origin = new Vector3(transform.position.x, 50f, transform.position.z);
+            RaycastHit[] hits = Physics.RaycastAll(origin, Vector3.down, 100f);
+            
+            float highestGroundY = float.MinValue;
+            bool foundGround = false;
+
+            for (int i = 0; i < hits.Length; i++)
             {
-                transform.position = new Vector3(transform.position.x, hit.point.y, transform.position.z);
+                var col = hits[i].collider;
+                // Ignore self, child colliders, and other villagers
+                if (col.transform == transform || col.transform.IsChildOf(transform) || col.GetComponentInParent<VillagerController>() != null)
+                    continue;
+
+                // Ignore triggers (reticles, boundary colliders)
+                if (col.isTrigger)
+                    continue;
+
+                if (hits[i].point.y > highestGroundY)
+                {
+                    highestGroundY = hits[i].point.y;
+                    foundGround = true;
+                }
+            }
+
+            if (foundGround)
+            {
+                transform.position = new Vector3(transform.position.x, highestGroundY, transform.position.z);
             }
         }
 
