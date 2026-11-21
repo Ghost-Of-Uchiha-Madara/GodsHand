@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using TheGodAbove.UI;
+using DynamicWeatherSystem;
 
 namespace TheGodAbove.Weather
 {
@@ -8,8 +9,29 @@ namespace TheGodAbove.Weather
     {
         public static DivinePowerVFXSpawner Instance { get; private set; }
 
-        private Material particleAdditiveMat;
-        private Material particleAlphaMat;
+        [Header("--- Dynamic Weather System Presets ---")]
+        [SerializeField] private WeatherStateData presetClear;
+        [SerializeField] private WeatherStateData presetRain;
+
+        [Header("--- Disaster VFX Prefabs ---")]
+        [SerializeField] private GameObject zapVFXPrefab;
+        [SerializeField] private GameObject fireFloorPrefab;
+        [SerializeField] private GameObject fireExplosionPrefab;
+        [SerializeField] private GameObject fireTrailPrefab;
+        [SerializeField] private GameObject rockMeshPrefab;
+        [SerializeField] private GameObject windFlowsPrefab;
+        [SerializeField] private GameObject windTrailsPrefab;
+        [SerializeField] private GameObject windDebrisPrefab;
+        [SerializeField] private GameObject hailPrefab;
+        [SerializeField] private GameObject snowPrefab;
+        [SerializeField] private GameObject frostFogPrefab;
+
+        [Header("--- Audio Clips ---")]
+        [SerializeField] private AudioClip zapSFX;
+        [SerializeField] private AudioClip fireSFX;
+        [SerializeField] private AudioClip windSFX;
+
+        private DynamicWeatherSystem.WeatherManager dynamicWeatherMgr;
 
         private void Awake()
         {
@@ -20,21 +42,54 @@ namespace TheGodAbove.Weather
                 return;
             }
 
-            InitMaterials();
+            LoadAssetsIfNull();
         }
 
-        private void InitMaterials()
+        private void Start()
         {
-            var unlitShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
-            if (unlitShader == null) unlitShader = Shader.Find("Sprites/Default");
+            dynamicWeatherMgr = Object.FindFirstObjectByType<DynamicWeatherSystem.WeatherManager>();
+        }
 
-            particleAdditiveMat = new Material(unlitShader);
-            particleAdditiveMat.SetFloat("_Surface", 1); // Transparent
-            particleAdditiveMat.SetFloat("_Blend", 1); // Additive
+        private void LoadAssetsIfNull()
+        {
+#if UNITY_EDITOR
+            if (presetClear == null)
+                presetClear = UnityEditor.AssetDatabase.LoadAssetAtPath<WeatherStateData>("Assets/DynamicWeatherSystem/Presets/WS_Clear.asset");
+            if (presetRain == null)
+                presetRain = UnityEditor.AssetDatabase.LoadAssetAtPath<WeatherStateData>("Assets/DynamicWeatherSystem/Presets/WS_Rain.asset");
 
-            particleAlphaMat = new Material(unlitShader);
-            particleAlphaMat.SetFloat("_Surface", 1); // Transparent
-            particleAlphaMat.SetFloat("_Blend", 0); // Alpha
+            if (zapVFXPrefab == null)
+                zapVFXPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Vefects/Zap VFX URP/VFX/Zap/Particles/VFX_Zap_03_Yellow.prefab");
+            if (fireFloorPrefab == null)
+                fireFloorPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Vefects/Free Fire VFX URP/Particles/VFX_Fire_Floor_01.prefab");
+            if (fireExplosionPrefab == null)
+                fireExplosionPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Vefects/Free Fire VFX URP/Particles/VFX_Fire_01_Big.prefab");
+            if (fireTrailPrefab == null)
+                fireTrailPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Vefects/Free Fire VFX URP/Particles/VFX_Fire_01_Small_Smoke.prefab");
+            if (rockMeshPrefab == null)
+                rockMeshPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Polytope Studio/Lowpoly_Environments/Prefabs/Rocks/PT_Generic_Rock_01.prefab");
+
+            if (windFlowsPrefab == null)
+                windFlowsPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Vefects/Wind VFX URP/VFX/Particles/VFX_Wind_Flows_01.prefab");
+            if (windTrailsPrefab == null)
+                windTrailsPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Vefects/Wind VFX URP/VFX/Particles/VFX_Wind_Flows_Trails_02_Fast.prefab");
+            if (windDebrisPrefab == null)
+                windDebrisPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Vefects/Wind VFX URP/VFX/Particles/VFX_Wind_Debris_Tree_Leaves_01.prefab");
+
+            if (hailPrefab == null)
+                hailPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Realistic Hail Set/Prefabs/Hail - Heavy.prefab");
+            if (snowPrefab == null)
+                snowPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Fog Particles/Bonus/Snow Particles.prefab");
+            if (frostFogPrefab == null)
+                frostFogPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Fog Particles/Prefabs/Bluish Fog.prefab");
+
+            if (zapSFX == null)
+                zapSFX = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Vefects/Zap VFX URP/Audio/WAV/SFX_Vefects_Zap_Big_01.wav");
+            if (fireSFX == null)
+                fireSFX = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Vefects/Free Fire VFX URP/Audio/SFX_FireBig_L.wav");
+            if (windSFX == null)
+                windSFX = UnityEditor.AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/DynamicWeatherSystem/Audio/storm-wind-loop.wav");
+#endif
         }
 
         public void SpawnVFX(DivinePowerType type, Vector3 position, float radius)
@@ -42,367 +97,222 @@ namespace TheGodAbove.Weather
             switch (type)
             {
                 case DivinePowerType.Sunny:
-                    SpawnSunnyVFX(position, radius);
+                    SpawnSunnyWeather();
                     break;
                 case DivinePowerType.Rainy:
-                    SpawnRainyVFX(position, radius);
+                    SpawnRainyWeather();
                     break;
                 case DivinePowerType.Hot:
-                    SpawnHeatVFX(position, radius);
+                    SpawnAsteroidStrike(position);
                     break;
                 case DivinePowerType.Lightning:
-                    SpawnLightningVFX(position, radius);
+                    SpawnZapLightning(position);
                     break;
                 case DivinePowerType.Wind:
-                    SpawnWindVFX(position, radius);
+                    SpawnWindStorm(position, radius);
                     break;
                 case DivinePowerType.Cold:
-                    SpawnColdVFX(position, radius);
+                    SpawnColdHailStorm(position, radius);
                     break;
             }
         }
 
         // ==========================================
-        // 1. SUNNY: Sunbeam shafts & golden sparkles
+        // 1. SUNNY: Global warm sunny weather
         // ==========================================
-        private void SpawnSunnyVFX(Vector3 pos, float radius)
+        public void SpawnSunnyWeather()
         {
-            var go = new GameObject("VFX_Sunny");
-            go.transform.position = pos;
+            if (dynamicWeatherMgr == null) dynamicWeatherMgr = Object.FindFirstObjectByType<DynamicWeatherSystem.WeatherManager>();
+            if (dynamicWeatherMgr != null && presetClear != null)
+            {
+                dynamicWeatherMgr.SetWeather(presetClear, 2.5f);
+            }
 
-            var light = go.AddComponent<Light>();
-            light.type = LightType.Point;
-            light.color = new Color(1f, 0.9f, 0.5f);
-            light.range = radius * 1.5f;
-            light.intensity = 4f;
-
-            var ps = go.AddComponent<ParticleSystem>();
-            var psr = go.GetComponent<ParticleSystemRenderer>();
-            psr.material = particleAdditiveMat;
-
-            var main = ps.main;
-            main.duration = 4f;
-            main.loop = false;
-            main.startLifetime = 2f;
-            main.startSpeed = 2.5f;
-            main.startSize = new ParticleSystem.MinMaxCurve(0.2f, 0.6f);
-            main.startColor = new Color(1f, 0.85f, 0.3f, 0.9f);
-            main.gravityModifier = -0.15f;
-
-            var emission = ps.emission;
-            emission.rateOverTime = 35f;
-
-            var shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Circle;
-            shape.radius = radius * 0.7f;
-            shape.rotation = new Vector3(90f, 0f, 0f);
-
-            var colOverLife = ps.colorOverLifetime;
-            colOverLife.enabled = true;
-            var grad = new Gradient();
-            grad.SetKeys(
-                new GradientColorKey[] { new GradientColorKey(new Color(1f, 0.9f, 0.4f), 0f), new GradientColorKey(new Color(1f, 0.7f, 0.2f), 1f) },
-                new GradientAlphaKey[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.2f), new GradientAlphaKey(0f, 1f) }
-            );
-            colOverLife.color = grad;
-
-            ps.Play();
-            StartCoroutine(FadeLightAndDestroy(go, light, 4f));
+            Debug.Log("[DivinePowerVFXSpawner] Applied SUNNY blessing: Warm sunny atmosphere across the island!");
         }
 
         // ==========================================
-        // 2. RAINY: Raincloud & falling rain streaks
+        // 2. RAIN: Global rain over the island
         // ==========================================
-        private void SpawnRainyVFX(Vector3 pos, float radius)
+        public void SpawnRainyWeather()
         {
-            var go = new GameObject("VFX_Rain");
-            go.transform.position = pos + Vector3.up * 14f;
+            if (dynamicWeatherMgr == null) dynamicWeatherMgr = Object.FindFirstObjectByType<DynamicWeatherSystem.WeatherManager>();
+            if (dynamicWeatherMgr != null && presetRain != null)
+            {
+                dynamicWeatherMgr.SetWeather(presetRain, 2.5f);
+            }
 
-            var cloudPS = go.AddComponent<ParticleSystem>();
-            var cloudRenderer = go.GetComponent<ParticleSystemRenderer>();
-            cloudRenderer.material = particleAlphaMat;
-
-            var cloudMain = cloudPS.main;
-            cloudMain.duration = 5f;
-            cloudMain.loop = false;
-            cloudMain.startLifetime = 3f;
-            cloudMain.startSpeed = 0.5f;
-            cloudMain.startSize = new ParticleSystem.MinMaxCurve(3f, 5f);
-            cloudMain.startColor = new Color(0.35f, 0.45f, 0.55f, 0.7f);
-
-            var cloudEmission = cloudPS.emission;
-            cloudEmission.rateOverTime = 15f;
-
-            var cloudShape = cloudPS.shape;
-            cloudShape.shapeType = ParticleSystemShapeType.Circle;
-            cloudShape.radius = radius * 0.8f;
-            cloudShape.rotation = new Vector3(90f, 0f, 0f);
-
-            var rainGO = new GameObject("RainDrops");
-            rainGO.transform.SetParent(go.transform, false);
-            var rainPS = rainGO.AddComponent<ParticleSystem>();
-            var rainRenderer = rainGO.GetComponent<ParticleSystemRenderer>();
-            rainRenderer.material = particleAdditiveMat;
-            rainRenderer.renderMode = ParticleSystemRenderMode.Stretch;
-            rainRenderer.lengthScale = 3f;
-            rainRenderer.velocityScale = 0.04f;
-
-            var rainMain = rainPS.main;
-            rainMain.duration = 5f;
-            rainMain.loop = false;
-            rainMain.startLifetime = 0.9f;
-            rainMain.startSpeed = 18f;
-            rainMain.startSize = 0.15f;
-            rainMain.startColor = new Color(0.6f, 0.85f, 1f, 0.8f);
-
-            var rainEmission = rainPS.emission;
-            rainEmission.rateOverTime = 120f;
-
-            var rainShape = rainPS.shape;
-            rainShape.shapeType = ParticleSystemShapeType.Circle;
-            rainShape.radius = radius * 0.85f;
-            rainShape.rotation = new Vector3(90f, 0f, 0f);
-
-            var light = go.AddComponent<Light>();
-            light.type = LightType.Point;
-            light.color = new Color(0.4f, 0.65f, 0.9f);
-            light.range = radius * 1.5f;
-            light.intensity = 1.8f;
-
-            cloudPS.Play();
-            rainPS.Play();
-            StartCoroutine(FadeLightAndDestroy(go, light, 5.5f));
+            Debug.Log("[DivinePowerVFXSpawner] Applied RAIN blessing: Whole island raining to hydrate soil!");
         }
 
         // ==========================================
-        // 3. HEAT: Heat distortion & rising embers
+        // 3. HEAT: Asteroid strike from sky + Free Fire VFX
         // ==========================================
-        private void SpawnHeatVFX(Vector3 pos, float radius)
+        public void SpawnAsteroidStrike(Vector3 targetPos)
         {
-            var go = new GameObject("VFX_Heat");
-            go.transform.position = pos;
+            Vector3 spawnPos = targetPos + new Vector3(-24f, 48f, 16f);
+            GameObject meteorGO;
 
-            var ps = go.AddComponent<ParticleSystem>();
-            var psr = go.GetComponent<ParticleSystemRenderer>();
-            psr.material = particleAdditiveMat;
+            if (rockMeshPrefab != null)
+            {
+                meteorGO = Instantiate(rockMeshPrefab, spawnPos, Quaternion.identity);
+                meteorGO.transform.localScale = Vector3.one * 1.8f;
+            }
+            else
+            {
+                meteorGO = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                meteorGO.transform.position = spawnPos;
+                meteorGO.transform.localScale = Vector3.one * 2.2f;
+            }
 
-            var main = ps.main;
-            main.duration = 4.5f;
-            main.loop = false;
-            main.startLifetime = 2f;
-            main.startSpeed = 3f;
-            main.startSize = new ParticleSystem.MinMaxCurve(0.3f, 0.8f);
-            main.startColor = new Color(1f, 0.45f, 0.1f, 0.9f);
-            main.gravityModifier = -0.2f;
+            meteorGO.name = "Asteroid_Meteor";
 
-            var emission = ps.emission;
-            emission.rateOverTime = 40f;
+            // Attach trailing fire
+            if (fireTrailPrefab != null)
+            {
+                var trail = Instantiate(fireTrailPrefab, meteorGO.transform);
+                trail.transform.localPosition = Vector3.zero;
+            }
 
-            var shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Circle;
-            shape.radius = radius * 0.65f;
-            shape.rotation = new Vector3(90f, 0f, 0f);
-
-            var colOverLife = ps.colorOverLifetime;
-            colOverLife.enabled = true;
-            var grad = new Gradient();
-            grad.SetKeys(
-                new GradientColorKey[] { new GradientColorKey(new Color(1f, 0.8f, 0.2f), 0f), new GradientColorKey(new Color(0.9f, 0.2f, 0.05f), 1f) },
-                new GradientAlphaKey[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.2f), new GradientAlphaKey(0f, 1f) }
-            );
-            colOverLife.color = grad;
-
-            var light = go.AddComponent<Light>();
+            // Fiery orange point light
+            var light = meteorGO.AddComponent<Light>();
             light.type = LightType.Point;
             light.color = new Color(1f, 0.45f, 0.1f);
-            light.range = radius * 1.4f;
-            light.intensity = 5f;
+            light.range = 25f;
+            light.intensity = 8f;
 
-            ps.Play();
-            StartCoroutine(FadeLightAndDestroy(go, light, 4.5f));
+            // Attach AsteroidProjectile logic
+            var proj = meteorGO.AddComponent<AsteroidProjectile>();
+            proj.Initialize(targetPos, fireFloorPrefab, fireExplosionPrefab, fireSFX);
+
+            Debug.Log($"[DivinePowerVFXSpawner] Launched Asteroid from sky towards {targetPos}!");
         }
 
         // ==========================================
-        // 4. LIGHTNING: Heavenly bolt strike & shockwave
+        // 4. LIGHTNING: Zap VFX Strike
         // ==========================================
-        private void SpawnLightningVFX(Vector3 pos, float radius)
+        public void SpawnZapLightning(Vector3 targetPos)
         {
-            var go = new GameObject("VFX_Lightning");
-            go.transform.position = pos;
-
-            var boltGO = new GameObject("Bolt");
-            boltGO.transform.SetParent(go.transform, false);
-            var lr = boltGO.AddComponent<LineRenderer>();
-            lr.material = particleAdditiveMat;
-            lr.startColor = new Color(1f, 1f, 0.9f, 1f);
-            lr.endColor = new Color(1f, 0.95f, 0.4f, 1f);
-            lr.startWidth = 0.45f;
-            lr.endWidth = 0.25f;
-
-            int segments = 14;
-            lr.positionCount = segments;
-            Vector3 startPos = pos + Vector3.up * 45f;
-            for (int i = 0; i < segments; i++)
+            if (zapVFXPrefab != null)
             {
-                float t = (float)i / (segments - 1);
-                Vector3 p = Vector3.Lerp(startPos, pos, t);
-                if (i > 0 && i < segments - 1)
-                {
-                    p += new Vector3(Random.Range(-1.5f, 1.5f), 0f, Random.Range(-1.5f, 1.5f));
-                }
-                lr.SetPosition(i, p);
+                var zapObj = Instantiate(zapVFXPrefab, targetPos, Quaternion.identity);
+                SafeDestroy(zapObj, 2f);
             }
 
-            var light = go.AddComponent<Light>();
+            // High voltage flash light
+            var flashGO = new GameObject("ZapFlashLight");
+            flashGO.transform.position = targetPos + Vector3.up * 1.5f;
+            var light = flashGO.AddComponent<Light>();
             light.type = LightType.Point;
-            light.color = new Color(1f, 1f, 0.85f);
-            light.range = 35f;
-            light.intensity = 16f;
+            light.color = new Color(1f, 1f, 0.9f);
+            light.range = 40f;
+            light.intensity = 20f;
+            StartCoroutine(FlashZapLight(light, flashGO));
 
-            var sparkPS = go.AddComponent<ParticleSystem>();
-            var sparkR = go.GetComponent<ParticleSystemRenderer>();
-            sparkR.material = particleAdditiveMat;
+            // Play Zap SFX
+            if (zapSFX != null)
+            {
+                PlayAudioAtPoint(zapSFX, targetPos, 1f);
+            }
 
-            var sparkMain = sparkPS.main;
-            sparkMain.duration = 1.2f;
-            sparkMain.loop = false;
-            sparkMain.startLifetime = 0.6f;
-            sparkMain.startSpeed = 12f;
-            sparkMain.startSize = 0.25f;
-            sparkMain.startColor = new Color(1f, 0.95f, 0.4f, 1f);
-            sparkMain.gravityModifier = 1f;
-
-            var sparkEmission = sparkPS.emission;
-            sparkEmission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 60) });
-
-            var sparkShape = sparkPS.shape;
-            sparkShape.shapeType = ParticleSystemShapeType.Sphere;
-            sparkShape.radius = 0.5f;
-
-            sparkPS.Play();
-            StartCoroutine(FlashLightning(lr, light, go));
+            Debug.Log($"[DivinePowerVFXSpawner] Struck target with Zap VFX at {targetPos}!");
         }
 
-        private IEnumerator FlashLightning(LineRenderer lr, Light light, GameObject root)
+        private IEnumerator FlashZapLight(Light light, GameObject go)
         {
-            light.intensity = 18f;
-            yield return new WaitForSeconds(0.06f);
-            light.intensity = 4f;
-            lr.enabled = false;
-            yield return new WaitForSeconds(0.04f);
-
-            lr.enabled = true;
-            light.intensity = 14f;
             yield return new WaitForSeconds(0.08f);
-            lr.enabled = false;
+            light.intensity = 6f;
+            yield return new WaitForSeconds(0.05f);
+            light.intensity = 15f;
+            yield return new WaitForSeconds(0.08f);
+            SafeDestroy(go);
+        }
 
-            float timer = 0.5f;
-            while (timer > 0f)
+        // ==========================================
+        // 5. WIND: Wind VFX URP (Flows, Trails, Leaves)
+        // ==========================================
+        public void SpawnWindStorm(Vector3 targetPos, float radius)
+        {
+            var windRoot = new GameObject("VFX_WindStorm");
+            windRoot.transform.position = targetPos;
+
+            if (windFlowsPrefab != null)
             {
-                timer -= Time.deltaTime;
-                light.intensity = Mathf.Lerp(0f, 4f, timer / 0.5f);
-                yield return null;
+                var flows = Instantiate(windFlowsPrefab, windRoot.transform);
+                flows.transform.localPosition = Vector3.zero;
             }
 
-            SafeDestroy(root, 1f);
+            if (windTrailsPrefab != null)
+            {
+                var trails = Instantiate(windTrailsPrefab, windRoot.transform);
+                trails.transform.localPosition = Vector3.zero;
+            }
+
+            if (windDebrisPrefab != null)
+            {
+                var debris = Instantiate(windDebrisPrefab, windRoot.transform);
+                debris.transform.localPosition = Vector3.zero;
+            }
+
+            if (windSFX != null)
+            {
+                PlayAudioAtPoint(windSFX, targetPos, 0.85f);
+            }
+
+            SafeDestroy(windRoot, 6f);
+            Debug.Log($"[DivinePowerVFXSpawner] Spawned Wind VFX storm at {targetPos}!");
         }
 
         // ==========================================
-        // 5. WIND: Directional gusts & swirling leaves
+        // 6. COLD: Hail & Snow Particles Pack
         // ==========================================
-        private void SpawnWindVFX(Vector3 pos, float radius)
+        public void SpawnColdHailStorm(Vector3 targetPos, float radius)
         {
-            var go = new GameObject("VFX_Wind");
-            go.transform.position = pos + Vector3.up * 1f;
+            var coldRoot = new GameObject("VFX_ColdHailStorm");
+            coldRoot.transform.position = targetPos;
 
-            var ps = go.AddComponent<ParticleSystem>();
-            var psr = go.GetComponent<ParticleSystemRenderer>();
-            psr.material = particleAdditiveMat;
+            // Falling heavy hail particles
+            if (hailPrefab != null)
+            {
+                var hail = Instantiate(hailPrefab, coldRoot.transform);
+                hail.transform.localPosition = Vector3.up * 10f;
+            }
 
-            var main = ps.main;
-            main.duration = 3.5f;
-            main.loop = false;
-            main.startLifetime = 2f;
-            main.startSpeed = 8f;
-            main.startSize = new ParticleSystem.MinMaxCurve(0.2f, 0.5f);
-            main.startColor = new Color(0.4f, 0.95f, 0.8f, 0.8f);
+            // Snow particles
+            if (snowPrefab != null)
+            {
+                var snow = Instantiate(snowPrefab, coldRoot.transform);
+                snow.transform.localPosition = Vector3.up * 8f;
+            }
 
-            var emission = ps.emission;
-            emission.rateOverTime = 40f;
+            // Rolling ground frost fog
+            if (frostFogPrefab != null)
+            {
+                var fog = Instantiate(frostFogPrefab, coldRoot.transform);
+                fog.transform.localPosition = Vector3.up * 0.5f;
+            }
 
-            var shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Cone;
-            shape.angle = 20f;
-            shape.radius = radius * 0.5f;
-            shape.rotation = new Vector3(-10f, 65f, 0f);
-
-            var velOverLife = ps.velocityOverLifetime;
-            velOverLife.enabled = true;
-            velOverLife.orbitalZ = 2f;
-
-            ps.Play();
-            SafeDestroy(go, 4f);
-        }
-
-        // ==========================================
-        // 6. COLD: Snowfall & frost mist
-        // ==========================================
-        private void SpawnColdVFX(Vector3 pos, float radius)
-        {
-            var go = new GameObject("VFX_Cold");
-            go.transform.position = pos + Vector3.up * 12f;
-
-            var ps = go.AddComponent<ParticleSystem>();
-            var psr = go.GetComponent<ParticleSystemRenderer>();
-            psr.material = particleAdditiveMat;
-
-            var main = ps.main;
-            main.duration = 5f;
-            main.loop = false;
-            main.startLifetime = 3f;
-            main.startSpeed = 4f;
-            main.startSize = new ParticleSystem.MinMaxCurve(0.25f, 0.6f);
-            main.startColor = new Color(0.7f, 0.9f, 1f, 0.9f);
-
-            var emission = ps.emission;
-            emission.rateOverTime = 65f;
-
-            var shape = ps.shape;
-            shape.shapeType = ParticleSystemShapeType.Circle;
-            shape.radius = radius * 0.75f;
-            shape.rotation = new Vector3(90f, 0f, 0f);
-
-            var velOverLife = ps.velocityOverLifetime;
-            velOverLife.enabled = true;
-            velOverLife.orbitalZ = 0.5f;
-
-            var light = go.AddComponent<Light>();
+            // Chill ice-blue ambient light
+            var light = coldRoot.AddComponent<Light>();
             light.type = LightType.Point;
-            light.color = new Color(0.5f, 0.85f, 1f);
-            light.range = radius * 1.5f;
-            light.intensity = 3.5f;
+            light.color = new Color(0.55f, 0.85f, 1f);
+            light.range = radius * 1.6f;
+            light.intensity = 4f;
 
-            ps.Play();
-            StartCoroutine(FadeLightAndDestroy(go, light, 5.5f));
+            SafeDestroy(coldRoot, 7f);
+            Debug.Log($"[DivinePowerVFXSpawner] Spawned Hail & Snow cold storm at {targetPos}!");
         }
 
-        private IEnumerator FadeLightAndDestroy(GameObject root, Light light, float lifetime)
+        private void PlayAudioAtPoint(AudioClip clip, Vector3 pos, float volume)
         {
-            float elapsed = 0f;
-            float initialIntensity = light != null ? light.intensity : 0f;
-
-            while (elapsed < lifetime)
-            {
-                elapsed += Time.deltaTime;
-                if (light != null && elapsed > lifetime * 0.6f)
-                {
-                    float t = (lifetime - elapsed) / (lifetime * 0.4f);
-                    light.intensity = Mathf.Lerp(0f, initialIntensity, t);
-                }
-                yield return null;
-            }
-
-            SafeDestroy(root);
+            var audioGO = new GameObject($"Audio_{clip.name}");
+            audioGO.transform.position = pos;
+            var src = audioGO.AddComponent<AudioSource>();
+            src.clip = clip;
+            src.volume = volume;
+            src.spatialBlend = 0.4f;
+            src.Play();
+            SafeDestroy(audioGO, clip.length + 0.5f);
         }
 
         private void SafeDestroy(GameObject go, float delay = 0f)

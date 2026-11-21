@@ -117,7 +117,7 @@ namespace TheGodAbove.Weather
         private void UpdateIndicatorPosition()
         {
             if (mainCam == null) mainCam = UnityEngine.Camera.main;
-            if (mainCam == null || currentDef == null)
+            if (mainCam == null || currentDef == null || currentDef.category == PowerCategory.Blessing)
             {
                 SetVisible(false);
                 return;

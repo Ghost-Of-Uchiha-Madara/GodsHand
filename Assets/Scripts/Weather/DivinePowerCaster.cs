@@ -23,8 +23,6 @@ namespace TheGodAbove.Weather
 
         private readonly Dictionary<DivinePowerType, float> cooldownTimers = new Dictionary<DivinePowerType, float>();
         private Camera mainCamera;
-        private Vector3 lastCastPosition;
-        private float continuousCastTimer = 0f;
 
         private void Awake()
         {
@@ -88,12 +86,53 @@ namespace TheGodAbove.Weather
             }
         }
 
-        private void HandlePowerSelected(DivinePowerType power)
+        public void HandlePowerSelected(DivinePowerType power)
         {
             activePower = power;
-            if (targetIndicator != null)
+            var def = DivinePowerDefinition.GetDefault(power);
+
+            // Blessings (Sunny & Rain): cast immediately on the entire island without target reticle!
+            if (def.category == PowerCategory.Blessing)
             {
-                targetIndicator.SetPower(power);
+                if (targetIndicator != null)
+                {
+                    targetIndicator.SetPower(power);
+                }
+
+                if (!IsOnCooldown(power))
+                {
+                    CastBlessing(def);
+                }
+                else
+                {
+                    float rem = cooldownTimers.TryGetValue(power, out float c) ? c : 0f;
+                    if (hudController != null)
+                    {
+                        hudController.SetActionPrompt($"⏳ {def.displayName} is recharging ({rem:F0}s remaining)...");
+                    }
+                }
+            }
+            // Disasters (Heat, Lightning, Wind, Cold): arm target reticle to aim on the island!
+            else
+            {
+                if (targetIndicator != null)
+                {
+                    targetIndicator.SetPower(power);
+                }
+
+                string prompt = power switch
+                {
+                    DivinePowerType.Hot => "☄️ Heat: Click the island to call down an Asteroid strike from the sky!",
+                    DivinePowerType.Lightning => "⚡ Lightning: Click the island to strike with heavenly Zap lightning!",
+                    DivinePowerType.Wind => "🌪️ Wind: Click the island to unleash a destructive Wind storm!",
+                    DivinePowerType.Cold => "❄️ Cold: Click the island to unleash a freezing Hail and snow blizzard!",
+                    _ => "Click the island to cast divine disaster"
+                };
+
+                if (hudController != null)
+                {
+                    hudController.SetActionPrompt(prompt);
+                }
             }
         }
 
@@ -106,33 +145,20 @@ namespace TheGodAbove.Weather
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return;
 
+            var def = DivinePowerDefinition.GetDefault(activePower);
+
+            // Blessings are handled directly upon selection; only disasters cast via mouse click on ground
+            if (def.category == PowerCategory.Blessing) return;
+
             if (targetIndicator == null || !targetIndicator.IsTargetingValid)
                 return;
 
             Vector3 hitPos = targetIndicator.TargetPosition;
-            var def = targetIndicator.CurrentDefinition;
-            if (def == null) return;
 
-            // Check single click
             if (mouse.leftButton.wasPressedThisFrame)
             {
-                TryCastPower(def, hitPos);
+                TryCastDisaster(def, hitPos);
             }
-            // Drag support for Sunny, Rain, Wind
-            else if (mouse.leftButton.isPressed && IsContinuousPower(activePower))
-            {
-                continuousCastTimer += Time.deltaTime;
-                if (continuousCastTimer >= 0.35f && Vector3.Distance(hitPos, lastCastPosition) > 4f)
-                {
-                    continuousCastTimer = 0f;
-                    TryCastPower(def, hitPos);
-                }
-            }
-        }
-
-        private bool IsContinuousPower(DivinePowerType type)
-        {
-            return type == DivinePowerType.Sunny || type == DivinePowerType.Rainy || type == DivinePowerType.Wind;
         }
 
         public bool IsOnCooldown(DivinePowerType power)
@@ -140,48 +166,102 @@ namespace TheGodAbove.Weather
             return cooldownTimers.TryGetValue(power, out float rem) && rem > 0f;
         }
 
-        private void TryCastPower(DivinePowerDefinition def, Vector3 targetPos)
+        private void CastBlessing(DivinePowerDefinition def)
         {
-            if (IsOnCooldown(def.powerType))
-            {
-                return;
-            }
-
-            // Set cooldown
             cooldownTimers[def.powerType] = def.cooldownDuration;
             if (hudController != null)
             {
                 hudController.TriggerPowerCooldown(def.powerType, def.cooldownDuration);
             }
 
-            lastCastPosition = targetPos;
+            // 1. Trigger Visuals
+            if (vfxSpawner != null)
+            {
+                vfxSpawner.SpawnVFX(def.powerType, Vector3.zero, def.aoeRadius);
+            }
 
-            // 1. Spawn VFX
+            // 2. Apply Simulation Impacts
+            if (weatherManager != null)
+            {
+                if (def.powerType == DivinePowerType.Sunny)
+                {
+                    // Sunny: Bring temperature and moisture towards ideal harvesting levels
+                    float targetHarvestTemp = 25f;
+                    float targetHarvestMoist = 62f;
+                    float tempDiff = targetHarvestTemp - weatherManager.CurrentTemperature;
+                    float moistDiff = targetHarvestMoist - weatherManager.CurrentMoisture;
+                    weatherManager.ModifyTemperature(Mathf.Clamp(tempDiff * 0.4f, -4f, 4f));
+                    weatherManager.ModifyMoisture(Mathf.Clamp(moistDiff * 0.4f, -6f, 6f));
+                }
+                else if (def.powerType == DivinePowerType.Rainy)
+                {
+                    // Rain: Hydrates soil (+18%) and cools down (-2°C)
+                    weatherManager.ModifyMoisture(18f);
+                    weatherManager.ModifyTemperature(-2f);
+                }
+            }
+
+            if (populationManager != null)
+            {
+                populationManager.ModifyHappiness(def.happinessDelta);
+            }
+
+            string resultPrompt = def.powerType == DivinePowerType.Sunny
+                ? "☀️ Sunny Blessing applied: Warm harvest light and optimal growth conditions!"
+                : "🌧️ Rain Blessing applied: Rainfall hydrating the entire island for plant growth!";
+
+            if (hudController != null)
+            {
+                hudController.SetActionPrompt(resultPrompt);
+            }
+
+            Debug.Log($"[DivinePowerCaster] Successfully applied world blessing: {def.displayName}!");
+        }
+
+        private void TryCastDisaster(DivinePowerDefinition def, Vector3 targetPos)
+        {
+            if (IsOnCooldown(def.powerType))
+            {
+                float rem = cooldownTimers[def.powerType];
+                if (hudController != null)
+                {
+                    hudController.SetActionPrompt($"⏳ {def.displayName} is recharging ({rem:F0}s remaining)...");
+                }
+                return;
+            }
+
+            cooldownTimers[def.powerType] = def.cooldownDuration;
+            if (hudController != null)
+            {
+                hudController.TriggerPowerCooldown(def.powerType, def.cooldownDuration);
+            }
+
+            // 1. Spawn Disaster VFX (Asteroid / Zap / Wind / Hail)
             if (vfxSpawner != null)
             {
                 vfxSpawner.SpawnVFX(def.powerType, targetPos, def.aoeRadius);
             }
 
-            // 2. Apply Weather Impact
+            // 2. Apply Environmental Simulation
             if (weatherManager != null)
             {
                 weatherManager.ModifyTemperature(def.temperatureDelta);
                 weatherManager.ModifyMoisture(def.moistureDelta);
             }
 
-            // 3. Apply Population Impact
+            // 3. Apply Population Reaction
             if (populationManager != null)
             {
                 populationManager.ModifyHappiness(def.happinessDelta);
             }
 
-            // 4. Special Effects (Lightning Camera Shake)
-            if (def.powerType == DivinePowerType.Lightning && mainCamera != null)
+            // 4. Special Effects (Lightning / Asteroid impact camera shake)
+            if (def.powerType == DivinePowerType.Lightning || def.powerType == DivinePowerType.Hot)
             {
-                StartCoroutine(CameraShake(0.2f, 0.35f));
+                StartCoroutine(CameraShake(0.22f, 0.4f));
             }
 
-            Debug.Log($"[DivinePowerCaster] Cast divine power '{def.displayName}' at {targetPos}!");
+            Debug.Log($"[DivinePowerCaster] Cast disaster '{def.displayName}' at {targetPos}!");
         }
 
         private System.Collections.IEnumerator CameraShake(float duration, float magnitude)

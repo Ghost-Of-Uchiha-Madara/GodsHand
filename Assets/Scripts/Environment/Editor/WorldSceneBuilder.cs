@@ -202,6 +202,12 @@ namespace TheGodAbove.Environment.Editor
             managersGO.AddComponent<DivinePowerVFXSpawner>();
             managersGO.AddComponent<DivinePowerCaster>();
 
+            // 7.5 Ensure Dynamic Weather System exists
+            if (Object.FindFirstObjectByType<DynamicWeatherSystem.WeatherManager>() == null)
+            {
+                EditorApplication.ExecuteMenuItem("GameObject/Dynamic Weather System/Weather System");
+            }
+
             // 8. EventSystem
             if (Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
             {
