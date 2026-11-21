@@ -220,7 +220,7 @@ Shader "Polytope Studio/PT_Vegetation_Opaque_Shader"
 			#pragma multi_compile_fragment _ _DBUFFER_MRT1 _DBUFFER_MRT2 _DBUFFER_MRT3
 			#pragma multi_compile _ _LIGHT_LAYERS
 			#pragma multi_compile_fragment _ _LIGHT_COOKIES
-			#pragma multi_compile _ _CLUSTER_LIGHT_LOOP
+			#pragma multi_compile _ _FORWARD_PLUS
 
 			#pragma multi_compile _ LIGHTMAP_SHADOW_MIXING
 			#pragma multi_compile _ SHADOWS_SHADOWMASK
@@ -801,10 +801,10 @@ Shader "Polytope Studio/PT_Vegetation_Opaque_Shader"
 					#if defined(_ADDITIONAL_LIGHTS)
 						uint meshRenderingLayers = GetMeshRenderingLayer();
 						uint pixelLightCount = GetAdditionalLightsCount();
-						#if USE_CLUSTER_LIGHT_LOOP
+						#if USE_FORWARD_PLUS
 							[loop] for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
 							{
-								CLUSTER_LIGHT_LOOP_SUBTRACTIVE_LIGHT_CHECK
+								FORWARD_PLUS_SUBTRACTIVE_LIGHT_CHECK
 
 								Light light = GetAdditionalLight(lightIndex, inputData.positionWS, inputData.shadowMask);
 								#ifdef _LIGHT_LAYERS
@@ -850,10 +850,10 @@ Shader "Polytope Studio/PT_Vegetation_Opaque_Shader"
 					#if defined(_ADDITIONAL_LIGHTS)
 						uint meshRenderingLayers = GetMeshRenderingLayer();
 						uint pixelLightCount = GetAdditionalLightsCount();
-						#if USE_CLUSTER_LIGHT_LOOP
+						#if USE_FORWARD_PLUS
 							[loop] for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++)
 							{
-								CLUSTER_LIGHT_LOOP_SUBTRACTIVE_LIGHT_CHECK
+								FORWARD_PLUS_SUBTRACTIVE_LIGHT_CHECK
 
 								Light light = GetAdditionalLight(lightIndex, inputData.positionWS, inputData.shadowMask);
 								#ifdef _LIGHT_LAYERS
