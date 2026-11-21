@@ -32,6 +32,13 @@ namespace TheGodAbove.Weather
             else if (Instance != this) Destroy(gameObject);
 
             mainCamera = Camera.main;
+            HUDController.OnHUDReady += HandleHUDReady;
+        }
+
+        private void HandleHUDReady()
+        {
+            FindReferencesIfNull();
+            BindUIEvents();
         }
 
         private void Start()
@@ -60,6 +67,7 @@ namespace TheGodAbove.Weather
 
         private void OnDestroy()
         {
+            HUDController.OnHUDReady -= HandleHUDReady;
             if (hudController != null)
             {
                 hudController.OnPowerSelected -= HandlePowerSelected;

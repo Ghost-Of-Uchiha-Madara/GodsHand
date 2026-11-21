@@ -73,6 +73,10 @@ namespace TheGodAbove.UI
         [SerializeField] private Button restartButton;
         [SerializeField] private Button settingsModalButton;
         [SerializeField] private Button quitButton;
+        [SerializeField] private GameObject settingsModal;
+        [SerializeField] private Button settingsCloseButton;
+        [SerializeField] private Button pauseCloseButton;
+        [SerializeField] private Button helpButton;
 
         [Header("--- Runtime Values (Debug / Preview) ---")]
         public int currentCoins = 12450;
@@ -91,11 +95,19 @@ namespace TheGodAbove.UI
 
         public event Action<DivinePowerType> OnPowerSelected;
         public event Action OnUpgradeClicked;
+        public static event Action OnHUDReady;
 
         private void Awake()
         {
-            if (Instance == null) Instance = this;
-            else if (Instance != this) Destroy(gameObject);
+            if (Instance == null)
+            {
+                Instance = this;
+                OnHUDReady?.Invoke();
+            }
+            else if (Instance != this)
+            {
+                Destroy(gameObject);
+            }
         }
 
         private void Start()
@@ -117,10 +129,23 @@ namespace TheGodAbove.UI
                 pauseButton.onClick.AddListener(() => TogglePauseMenu(true));
 
             if (settingsButton != null)
-                settingsButton.onClick.AddListener(() => TogglePauseMenu(true));
+                settingsButton.onClick.AddListener(() => ToggleSettingsModal(true));
 
             if (resumeButton != null)
                 resumeButton.onClick.AddListener(() => TogglePauseMenu(false));
+
+            if (pauseCloseButton != null)
+                pauseCloseButton.onClick.AddListener(() => TogglePauseMenu(false));
+
+            if (settingsModalButton != null)
+                settingsModalButton.onClick.AddListener(() =>
+                {
+                    TogglePauseMenu(false);
+                    ToggleSettingsModal(true);
+                });
+
+            if (settingsCloseButton != null)
+                settingsCloseButton.onClick.AddListener(() => ToggleSettingsModal(false));
 
             if (upgradeButton != null)
                 upgradeButton.onClick.AddListener(HandleUpgradeClick);
@@ -355,6 +380,22 @@ namespace TheGodAbove.UI
             {
                 pauseMenuModal.SetActive(show);
                 Time.timeScale = show ? 0f : 1f;
+            }
+        }
+
+        public void ToggleSettingsModal(bool show)
+        {
+            if (settingsModal != null)
+            {
+                settingsModal.SetActive(show);
+                if (show)
+                {
+                    Time.timeScale = 0f;
+                }
+                else if (pauseMenuModal == null || !pauseMenuModal.activeSelf)
+                {
+                    Time.timeScale = 1f;
+                }
             }
         }
 
