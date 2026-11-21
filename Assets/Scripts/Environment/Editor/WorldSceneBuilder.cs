@@ -198,6 +198,9 @@ namespace TheGodAbove.Environment.Editor
             managersGO.AddComponent<EconomyManager>();
             managersGO.AddComponent<GodProgressionManager>();
             managersGO.AddComponent<GameManager>();
+            managersGO.AddComponent<DivinePowerTargetIndicator>();
+            managersGO.AddComponent<DivinePowerVFXSpawner>();
+            managersGO.AddComponent<DivinePowerCaster>();
 
             // 8. EventSystem
             if (Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>() == null)
